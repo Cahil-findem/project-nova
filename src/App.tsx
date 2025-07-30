@@ -9,10 +9,10 @@ interface Message {
   timestamp: number
 }
 
-const openai = new OpenAI({
+const openai = import.meta.env.VITE_OPENAI_API_KEY ? new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true
-})
+}) : null
 
 function App() {
   const [message, setMessage] = useState('')
@@ -20,7 +20,9 @@ function App() {
     {
       id: '1',
       type: 'ai',
-      content: 'Hey Jacky 👋 <br /> What role are you hiring for today?',
+      content: openai 
+        ? 'Hey Jacky 👋 <br /> What role are you hiring for today?' 
+        : 'Hey Jacky 👋 <br /> OpenAI API key is not configured. The chat functionality will be limited until you set the VITE_OPENAI_API_KEY environment variable.',
       timestamp: Date.now()
     }
   ])
@@ -42,6 +44,18 @@ function App() {
     setMessages(prev => [...prev, userMessage])
     setMessage('')
     setIsLoading(true)
+
+    if (!openai) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        content: 'OpenAI API key is not configured. Please set VITE_OPENAI_API_KEY environment variable.',
+        timestamp: Date.now()
+      }
+      setMessages(prev => [...prev, errorMessage])
+      setIsLoading(false)
+      return
+    }
 
     try {
       const response = await openai.chat.completions.create({
