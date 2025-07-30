@@ -20,9 +20,7 @@ function App() {
     {
       id: '1',
       type: 'ai',
-      content: openai 
-        ? 'Hey Jacky 👋 <br /> What role are you hiring for today?' 
-        : 'Hey Jacky 👋 <br /> OpenAI API key is not configured. The chat functionality will be limited until you set the VITE_OPENAI_API_KEY environment variable.',
+      content: 'Hey Jacky 👋 <br /> What role are you hiring for today?',
       timestamp: Date.now()
     }
   ])
