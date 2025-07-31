@@ -23,6 +23,7 @@ function App() {
   const [showStartScreen, setShowStartScreen] = useState(true)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const summaryRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const startChat = useCallback(async () => {
     if (!message.trim() || isLoading) return
@@ -186,6 +187,13 @@ function App() {
     }
   }, [isResizing, handleMouseMove, handleMouseUp])
 
+  // Auto-focus input on mount and after transitions
+  React.useEffect(() => {
+    if (inputRef.current && !isLoading && !isTransitioning) {
+      inputRef.current.focus()
+    }
+  }, [showStartScreen, isLoading, isTransitioning, messages])
+
   if (showStartScreen) {
     return (
       <div className={`app start-screen ${isTransitioning ? 'transitioning' : ''}`}>
@@ -217,6 +225,7 @@ function App() {
               <div className="ai-input-content">
                 <div className="input-row">
                   <input
+                    ref={inputRef}
                     type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
@@ -330,6 +339,7 @@ function App() {
                 <div className="ai-input-content">
                   <div className="input-row">
                     <input
+                      ref={inputRef}
                       type="text"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
