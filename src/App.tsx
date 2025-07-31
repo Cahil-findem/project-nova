@@ -16,22 +16,20 @@ const openai = import.meta.env.VITE_OPENAI_API_KEY ? new OpenAI({
 
 function App() {
   const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'ai',
-      content: 'Hey Jacky 👋 <br /> What role are you hiring for today?',
-      timestamp: Date.now()
-    }
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [summaryWidth, setSummaryWidth] = useState(408)
   const [isResizing, setIsResizing] = useState(false)
+  const [showStartScreen, setShowStartScreen] = useState(true)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const summaryRef = useRef<HTMLDivElement>(null)
 
-  const sendMessage = useCallback(async () => {
+  const startChat = useCallback(async () => {
     if (!message.trim() || isLoading) return
 
+    // Start transition
+    setIsTransitioning(true)
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
@@ -39,10 +37,32 @@ function App() {
       timestamp: Date.now()
     }
 
-    setMessages(prev => [...prev, userMessage])
+    // Add initial AI greeting and user message
+    setMessages([
+      {
+        id: '0',
+        type: 'ai',
+        content: 'Hey Jacky 👋 <br /> Great! Let me help you define this role.',
+        timestamp: Date.now() - 1
+      },
+      userMessage
+    ])
+    
+    const currentMessage = message.trim()
     setMessage('')
     setIsLoading(true)
 
+    // Transition to chat view after a short delay
+    setTimeout(() => {
+      setShowStartScreen(false)
+      setIsTransitioning(false)
+    }, 800)
+
+    // Continue with API call
+    await processMessage(currentMessage, [userMessage])
+  }, [message, isLoading])
+
+  const processMessage = useCallback(async (messageContent: string, currentMessages: Message[]) => {
     if (!openai) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -63,13 +83,13 @@ function App() {
             role: 'system',
             content: 'You are Jacky, a helpful AI assistant for hiring managers. You help them define job roles, requirements, and find the right candidates. Be conversational, friendly, and professional. Keep responses concise but helpful.'
           },
-          ...messages.map(msg => ({
+          ...currentMessages.map(msg => ({
             role: msg.type === 'user' ? 'user' as const : 'assistant' as const,
             content: msg.content.replace(/<br\s*\/?>/gi, '\n')
           })),
           {
             role: 'user',
-            content: message.trim()
+            content: messageContent
           }
         ],
         max_tokens: 500,
@@ -98,19 +118,45 @@ function App() {
     } finally {
       setIsLoading(false)
     }
+  }, [])
+
+  const sendMessage = useCallback(async () => {
+    if (!message.trim() || isLoading) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: message.trim(),
+      timestamp: Date.now()
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    const currentMessage = message.trim()
+    setMessage('')
+    setIsLoading(true)
+
+    await processMessage(currentMessage, messages)
   }, [message, messages, isLoading])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    sendMessage()
-  }, [sendMessage])
+    if (showStartScreen) {
+      startChat()
+    } else {
+      sendMessage()
+    }
+  }, [showStartScreen, startChat, sendMessage])
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      sendMessage()
+      if (showStartScreen) {
+        startChat()
+      } else {
+        sendMessage()
+      }
     }
-  }, [sendMessage])
+  }, [showStartScreen, startChat, sendMessage])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setIsResizing(true)
@@ -148,8 +194,80 @@ function App() {
     }
   }, [isResizing, handleMouseMove, handleMouseUp])
 
+  if (showStartScreen) {
+    return (
+      <div className={`app start-screen ${isTransitioning ? 'transitioning' : ''}`}>
+        {/* Left Sidebar */}
+        <div className="sidebar">
+          <div className="sidebar-icon">
+            <span className="material-icons">menu</span>
+          </div>
+          <div className="sidebar-icon">
+            <span className="material-icons">search</span>
+          </div>
+          <div className="sidebar-icon">
+            <span className="material-icons">folder</span>
+          </div>
+          <div className="sidebar-icon">
+            <span className="material-icons">assignment</span>
+          </div>
+        </div>
+
+        {/* Start Screen Content */}
+        <div className="start-screen-content">
+          <div className="start-screen-header">
+            <h1 className="start-screen-title">Who are we hiring today?</h1>
+            <div className="start-screen-subtitle">
+              <div className="header-actions">
+                <button className="action-btn active">Define Role</button>
+                <button className="action-btn">Review Matches</button>
+                <button className="action-btn">Send Outreach</button>
+                <button className="action-btn">Track Outreach</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="start-screen-input">
+            <form onSubmit={handleSubmit} className="start-input-form">
+              <div className="start-input-container">
+                <input
+                  type="text"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Describe the role you're looking to fill..."
+                  className="start-input-field"
+                  disabled={isLoading || isTransitioning}
+                />
+                <div className="start-input-actions">
+                  <button type="button" className="start-icon-button" aria-label="Add">
+                    <span className="material-icons">add</span>
+                  </button>
+                  <button type="button" className="start-icon-button" aria-label="Settings">
+                    <span className="material-icons">tune</span>
+                  </button>
+                  <button type="button" className="start-icon-button" aria-label="Voice input">
+                    <span className="material-icons">mic</span>
+                  </button>
+                  <button 
+                    type="submit" 
+                    className={`start-send-button ${message.trim() && !isLoading && !isTransitioning ? 'active' : 'inactive'}`}
+                    disabled={!message.trim() || isLoading || isTransitioning}
+                    aria-label="Send message"
+                  >
+                    <span className="material-icons">arrow_upward</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="app">
+    <div className={`app ${isTransitioning ? 'transitioning' : ''}`}>
       {/* Left Sidebar */}
       <div className="sidebar">
         <div className="sidebar-icon">
