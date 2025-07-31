@@ -37,16 +37,8 @@ function App() {
       timestamp: Date.now()
     }
 
-    // Add initial AI greeting and user message
-    setMessages([
-      {
-        id: '0',
-        type: 'ai',
-        content: 'Hey Jacky 👋 <br /> Great! Let me help you define this role.',
-        timestamp: Date.now() - 1
-      },
-      userMessage
-    ])
+    // Add user message as the first message
+    setMessages([userMessage])
     
     const currentMessage = message.trim()
     setMessage('')
