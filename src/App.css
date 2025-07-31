@@ -100,27 +100,55 @@ body {
   gap: 8px;
 }
 
-.action-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--gray-300);
+/* Updated Action Tab Styles */
+.action-tab {
+  padding: 8px 14px;
   border-radius: 8px;
-  background-color: var(--white);
-  color: var(--gray-700);
-  font-family: 'Roboto';
-  font-size: 14px;
-  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.action-btn:hover {
-  background-color: var(--gray-50);
+.action-tab.active {
+  background-color: #e0f2fe;
+  border: none;
 }
 
-.action-btn.active {
-  background-color: var(--primary-blue);
-  color: var(--white);
-  border-color: var(--primary-blue);
+.action-tab.idle {
+  background-color: #f9fafb;
+  border: none;
+}
+
+.action-tab.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-tab-text {
+  font-family: 'Roboto';
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.action-tab.active .action-tab-text {
+  color: #1e40af;
+}
+
+.action-tab.idle .action-tab-text {
+  color: #9ca3af;
+}
+
+.action-tab.disabled .action-tab-text {
+  color: #64748b;
+}
+
+.action-tab:hover:not(.disabled) {
+  transform: translateY(-1px);
 }
 
 .header-controls {

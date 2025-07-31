@@ -283,10 +283,18 @@ function App() {
         <div className="header">
           <h1 className="header-title">Software Engineer</h1>
           <div className="header-actions">
-            <button className="action-btn active">Define Role</button>
-            <button className="action-btn">Review Matches</button>
-            <button className="action-btn">Send Outreach</button>
-            <button className="action-btn">Track Outreach</button>
+            <div data-count="false" data-icon="false" data-state="Active" className="action-tab active">
+              <div className="action-tab-text">Define Role</div>
+            </div>
+            <div data-count="false" data-icon="false" data-state="Idle" className="action-tab idle">
+              <div className="action-tab-text">Review Matches</div>
+            </div>
+            <div data-count="false" data-icon="false" data-state="Idle" className="action-tab idle">
+              <div className="action-tab-text">Send Outreach</div>
+            </div>
+            <div data-count="false" data-icon="false" data-state="Idle" className="action-tab idle disabled">
+              <div className="action-tab-text">Track Outreach</div>
+            </div>
           </div>
           <div className="header-controls">
             <span className="material-icons">file_download</span>
