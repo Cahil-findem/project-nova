@@ -217,46 +217,47 @@ function App() {
         <div className="start-screen-content">
           <div className="start-screen-header">
             <h1 className="start-screen-title">Who are we hiring today?</h1>
-            <div className="start-screen-subtitle">
-              <div className="header-actions">
-                <button className="action-btn active">Define Role</button>
-                <button className="action-btn">Review Matches</button>
-                <button className="action-btn">Send Outreach</button>
-                <button className="action-btn">Track Outreach</button>
-              </div>
-            </div>
           </div>
 
-          <div className="start-screen-input">
-            <form onSubmit={handleSubmit} className="start-input-form">
-              <div className="start-input-container">
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Describe the role you're looking to fill..."
-                  className="start-input-field"
-                  disabled={isLoading || isTransitioning}
-                />
-                <div className="start-input-actions">
-                  <button type="button" className="start-icon-button" aria-label="Add">
-                    <span className="material-icons">add</span>
-                  </button>
-                  <button type="button" className="start-icon-button" aria-label="Settings">
-                    <span className="material-icons">tune</span>
-                  </button>
-                  <button type="button" className="start-icon-button" aria-label="Voice input">
-                    <span className="material-icons">mic</span>
-                  </button>
-                  <button 
-                    type="submit" 
-                    className={`start-send-button ${message.trim() && !isLoading && !isTransitioning ? 'active' : 'inactive'}`}
-                    disabled={!message.trim() || isLoading || isTransitioning}
-                    aria-label="Send message"
-                  >
-                    <span className="material-icons">arrow_upward</span>
-                  </button>
+          {/* Existing AI Input Component - positioned for start screen */}
+          <div className="input-area start-screen-positioned">
+            <form onSubmit={handleSubmit} className="ai-input-card">
+              <div className="ai-input-content">
+                <div className="input-row">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Describe the role you're looking to fill..."
+                    className="ai-input-field"
+                    disabled={isLoading || isTransitioning}
+                  />
+                </div>
+
+                <div className="action-row">
+                  <div className="left-actions">
+                    <button type="button" className="icon-button" aria-label="Add">
+                      <span className="material-icons">add</span>
+                    </button>
+                    <button type="button" className="icon-button" aria-label="Settings">
+                      <span className="material-icons">tune</span>
+                    </button>
+                  </div>
+
+                  <div className="right-actions">
+                    <button type="button" className="icon-button" aria-label="Voice input">
+                      <span className="material-icons">mic</span>
+                    </button>
+                    <button 
+                      type="submit" 
+                      className={`send-button ${message.trim() && !isLoading && !isTransitioning ? 'active' : 'inactive'}`}
+                      disabled={!message.trim() || isLoading || isTransitioning}
+                      aria-label="Send message"
+                    >
+                      <span className="material-icons">arrow_upward</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
