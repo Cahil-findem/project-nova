@@ -14,5 +14,7 @@
       "src": "/(.*)",
       "dest": "intake-agent-chat/$1"
     }
-  ]
+  ],
+  "installCommand": "cd intake-agent-chat && npm install",
+  "buildCommand": "cd intake-agent-chat && npm run build"
 }
