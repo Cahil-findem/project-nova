@@ -1,20 +1,5 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "intake-agent-chat/package.json",
-      "use": "@vercel/next",
-      "config": {
-        "distDir": ".next"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "intake-agent-chat/$1"
-    }
-  ],
+  "buildCommand": "cd intake-agent-chat && npm run build",
   "installCommand": "cd intake-agent-chat && npm install",
-  "buildCommand": "cd intake-agent-chat && npm run build"
+  "outputDirectory": "intake-agent-chat/.next"
 }

@@ -1409,7 +1409,6 @@ async function extractAndNormalizeRequirements(
 // Add the rest of the missing imports and components
 import { useChat } from "ai/react"
 import type { Requirements } from "@/lib/schemas"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -1528,23 +1527,6 @@ function RequirementsCard({ requirements }: { requirements: Requirements }) {
   )
 }
 
-function AssistantAvatar() {
-  return (
-    <Avatar className="h-8 w-8">
-      <AvatarImage src="/placeholder-avatar.jpg" alt="Assistant Avatar" />
-      <AvatarFallback>AI</AvatarFallback>
-    </Avatar>
-  )
-}
-
-function UserAvatar() {
-  return (
-    <Avatar className="h-8 w-8">
-      <AvatarImage src="https://github.com/shadcn.png" alt="User Avatar" />
-      <AvatarFallback>TS</AvatarFallback>
-    </Avatar>
-  )
-}
 
 // Main Page Component
 export default function Page() {
