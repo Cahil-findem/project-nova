@@ -1,5 +1,3 @@
 {
-  "buildCommand": "cd intake-agent-chat && npm run build",
-  "installCommand": "cd intake-agent-chat && npm install",
-  "outputDirectory": "intake-agent-chat/.next"
+  "framework": "nextjs"
 }
