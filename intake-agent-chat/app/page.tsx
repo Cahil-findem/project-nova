@@ -1416,13 +1416,19 @@ import { Badge } from "@/components/ui/badge"
 // Add the rest of the component functions and the main export
 
 function RequirementsCard({ requirements }: { requirements: Requirements }) {
+  console.log("🎯 RequirementsCard received:", requirements)
+  
   const hasRequirements = Object.values(requirements).some(value => 
     value !== null && value !== undefined && 
     (Array.isArray(value) ? value.length > 0 : typeof value === 'string' && value.length > 0)
   )
 
+  console.log("🎯 HasRequirements:", hasRequirements)
+
   const role = requirements.role || "Software Engineer"
   const location = requirements.location || "San Francisco, CA, USA"
+  
+  console.log("🎯 Displaying role:", role, "location:", location)
 
   return (
     <Card className="w-full bg-white shadow-sm">
@@ -1562,18 +1568,48 @@ export default function Page() {
   })
 
   const onRequirementsChange = useCallback((newRequirements: Requirements) => {
-    console.log("Requirements changed:", newRequirements)
+    console.log("🔄 Requirements changed:", newRequirements)
+    console.log("🔄 Current requirements state:", requirements)
     setRequirements(newRequirements)
   }, [])
 
   // Extract and normalize requirements whenever messages change
   useEffect(() => {
-    extractAndNormalizeRequirements(messages, onRequirementsChange, requirements)
-  }, [messages, onRequirementsChange, requirements])
+    const userMessages = messages.filter(m => m.role === "user")
+    console.log("📨 Messages changed, extracting requirements. Messages count:", messages.length)
+    console.log("📨 User messages:", userMessages.map(m => m.content))
+    
+    if (userMessages.length === 0) {
+      console.log("📨 No user messages, skipping extraction")
+      return
+    }
+    
+    // Debounce the extraction to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      console.log("📨 Triggering requirements extraction...")
+      extractAndNormalizeRequirements(messages, onRequirementsChange, requirements)
+    }, 1000) // 1 second debounce
+    
+    return () => clearTimeout(timeoutId)
+  }, [messages, onRequirementsChange])
 
   const handleChatStart = () => {
     // Dispatch a custom event to trigger auto-start of microphone
     window.dispatchEvent(new Event("autoStartMicrophone"))
+  }
+
+  // Debug function to test requirements update
+  const testRequirementsUpdate = () => {
+    console.log("🧪 Testing requirements update...")
+    setRequirements({
+      role: "Senior React Developer",
+      location: "Remote",
+      skills: ["React", "TypeScript", "Node.js"],
+      experience: ["5+ years", "Senior level"],
+      industry: ["Tech", "SaaS"],
+      companies: ["Startup", "Google"],
+      qualities: ["Strong problem-solving skills", "Excellent communication", "Team leadership experience"]
+    })
   }
 
   const hasUserMessages = messages.filter((msg) => msg.role === "user").length > 0
@@ -1590,6 +1626,9 @@ export default function Page() {
         {hasUserMessages && (
           <div className="flex items-center justify-between animate-in fade-in slide-in-from-top duration-700 delay-200 px-6">
             <h2 className="text-2xl font-bold">Define Role</h2>
+            <Button onClick={testRequirementsUpdate} variant="outline" size="sm">
+              🧪 Test Update
+            </Button>
           </div>
         )}
 
