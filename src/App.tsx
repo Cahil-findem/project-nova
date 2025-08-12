@@ -247,25 +247,8 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('No response body')
-      }
-
-      let aiResponse = ''
-      
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          
-          const chunk = new TextDecoder().decode(value)
-          aiResponse += chunk
-        }
-      } catch (streamError) {
-        console.error('Streaming error:', streamError)
-        throw new Error('Error reading response stream')
-      }
+      const data = await response.json()
+      const aiResponse = data.message || 'Sorry, I couldn\'t process that request.'
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
