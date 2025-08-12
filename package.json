@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "build": "vite build",
-    "dev": "vite dev",
+    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:api\"",
+    "dev:vite": "vite dev",
+    "dev:api": "next dev -p 3000",
     "preview": "vite preview",
     "lint": "next lint",
     "start": "next start"
@@ -69,6 +71,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.2.0",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5",

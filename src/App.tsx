@@ -41,7 +41,8 @@ function App() {
   const getUserLocation = useCallback(async () => {
     try {
       console.log('Fetching location from IP...')
-      const response = await fetch('https://ipapi.co/json/')
+      // Use ipinfo.io which is more reliable and CORS-friendly
+      const response = await fetch('https://ipinfo.io/json?token=')
       const data = await response.json()
       console.log('Location data received:', data)
       if (data.city && data.region) {
@@ -53,9 +54,19 @@ function App() {
         }))
       } else {
         console.log('No city/region data available')
+        // Set a default fallback location
+        setJobDescription(prev => ({
+          ...prev,
+          location: 'Remote'
+        }))
       }
     } catch (error) {
       console.log('Could not get location from IP:', error)
+      // Fallback: set a default location
+      setJobDescription(prev => ({
+        ...prev,
+        location: 'Remote'
+      }))
     }
   }, [])
 
