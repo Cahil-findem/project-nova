@@ -35,6 +35,7 @@ function App() {
   })
   const summaryRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const chatAreaRef = useRef<HTMLDivElement>(null)
 
   // Get user's location from IP address
   const getUserLocation = useCallback(async () => {
@@ -234,7 +235,6 @@ Guide the user through these fields, in order:
 
 role_title
 role_mission (1 sentence)
-location (city)
 work_setup (remote/hybrid/onsite)
 timezone_need
 hard_skills (array)
@@ -261,7 +261,7 @@ Use inclusive, bias-aware language.
 
 Flow
 Start by confirming the role & mission naturally.
-Move to location & work setup.
+Move to work setup & timezone needs.
 Ask about hard skills.
 Ask about years of experience.
 Ask about domain/project experience.
@@ -401,6 +401,13 @@ Kickoff message example:
     }
   }, [showStartScreen, isLoading, isTransitioning, messages])
 
+  // Auto-scroll chat area to bottom when new messages are added
+  React.useEffect(() => {
+    if (chatAreaRef.current) {
+      chatAreaRef.current.scrollTop = chatAreaRef.current.scrollHeight
+    }
+  }, [messages, isLoading])
+
   if (showStartScreen) {
     return (
       <div className={`app start-screen ${isTransitioning ? 'transitioning' : ''}`}>
@@ -523,7 +530,7 @@ Kickoff message example:
           {/* Chat Section */}
           <div className="chat-section">
             {/* Chat Area */}
-            <div className="chat-area">
+            <div className="chat-area" ref={chatAreaRef}>
               {messages.map((msg) => (
                 <div key={msg.id} className={msg.type === 'ai' ? 'ai-message' : 'user-message'}>
                   {msg.type === 'ai' ? (
