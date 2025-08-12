@@ -1,17 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": null,
-  "functions": {
-    "app/api/**/*.ts": {
-      "runtime": "@vercel/node@3.0.7"
-    }
-  },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/app/api/$1"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

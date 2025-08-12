@@ -40,14 +40,19 @@ function App() {
   // Get user's location from IP address
   const getUserLocation = useCallback(async () => {
     try {
+      console.log('Fetching location from IP...')
       const response = await fetch('https://ipapi.co/json/')
       const data = await response.json()
+      console.log('Location data received:', data)
       if (data.city && data.region) {
         const location = `${data.city}, ${data.region}`
+        console.log('Setting location to:', location)
         setJobDescription(prev => ({
           ...prev,
           location: location
         }))
+      } else {
+        console.log('No city/region data available')
       }
     } catch (error) {
       console.log('Could not get location from IP:', error)
@@ -210,89 +215,47 @@ function App() {
   }, [capitalizeText, capitalizeRequirement])
 
   const processMessage = useCallback(async (messageContent: string, currentMessages: Message[]) => {
-    if (!openai) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: 'OpenAI API key is not configured. Please set VITE_OPENAI_API_KEY environment variable.',
-        timestamp: Date.now()
-      }
-      setMessages(prev => [...prev, errorMessage])
-      setIsLoading(false)
-      return
-    }
-
     try {
-      const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a friendly, highly effective recruiter AI. Your job is to collect hiring requirements via a natural, message-by-message conversation. Keep the tone warm, clear, and engaging. Ask exactly one focused question per message, acknowledge answers, and keep momentum. Never fabricate details.
-
-What to do
-Guide the user through these fields, in order:
-
-role_title
-role_mission (1 sentence)
-work_setup (remote/hybrid/onsite)
-timezone_need
-hard_skills (array)
-years_experience (range)
-domain_experience (industries, platform types, project patterns)
-culture (values, team style)
-intangibles (traits/behaviors)
-responsibilities (collect as bullets, if the user volunteers)
-nice_to_haves (array)
-compensation_notes (optional)
-application_instructions (optional)
-
-What NOT to do
-Never generate or propose a job description.
-Never output long summaries unless the user asks for a "recap."
-Never ask multiple questions in one turn.
-
-Guardrails
-One question per turn.
-Respond conversationally (no numbered "Q1/Q2" prefixes).
-Mirror the user's phrasing; clarify if ambiguous.
-Keep bullets tight when echoing back (3–6 max).
-Use inclusive, bias-aware language.
-
-Flow
-Start by confirming the role & mission naturally.
-Move to work setup & timezone needs.
-Ask about hard skills.
-Ask about years of experience.
-Ask about domain/project experience.
-Ask about culture.
-Ask about intangibles.
-Ask about responsibilities (only if the user offers, otherwise skip).
-Ask about nice-to-haves.
-Optionally ask about compensation & application notes if the user brings it up.
-Close by asking if there's anything else they want to add or edit.
-
-On summaries
-If the user says "recap" or "summarize," give a short bullet list of gathered details — never in job description format.
-
-Kickoff message example:
-"Alright, let's build this together. What's the exact title you're hiring for, and in one sentence, what's the main purpose of the role?"`
-          },
-          ...currentMessages.map(msg => ({
-            role: msg.type === 'user' ? 'user' as const : 'assistant' as const,
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: currentMessages.map(msg => ({
+            role: msg.type === 'user' ? 'user' : 'assistant',
             content: msg.content.replace(/<br\s*\/?>/gi, '\n')
-          })),
-          {
+          })).concat([{
             role: 'user',
             content: messageContent
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.7
+          }])
+        })
       })
 
-      const aiResponse = response.choices[0]?.message?.content || 'Sorry, I couldn\'t process that request.'
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      let aiResponse = ''
       
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          const chunk = new TextDecoder().decode(value)
+          aiResponse += chunk
+        }
+      } catch (streamError) {
+        console.error('Streaming error:', streamError)
+        throw new Error('Error reading response stream')
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
@@ -306,7 +269,7 @@ Kickoff message example:
       // Extract job description after successful AI response
       await extractJobDescription(updatedMessages)
     } catch (error) {
-      console.error('Error calling OpenAI:', error)
+      console.error('Error calling chat API:', error)
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
