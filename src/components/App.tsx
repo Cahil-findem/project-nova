@@ -16,8 +16,8 @@ interface JobDescription {
   qualities: string[]
 }
 
-const openai = import.meta.env.VITE_OPENAI_API_KEY ? new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+const openai = process.env.NEXT_PUBLIC_OPENAI_API_KEY ? new OpenAI({
+  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true
 }) : null
 
@@ -33,6 +33,11 @@ function App() {
     requirements: [],
     qualities: []
   })
+
+  // Debug log whenever jobDescription changes
+  React.useEffect(() => {
+    console.log('jobDescription state updated:', jobDescription)
+  }, [jobDescription])
   const summaryRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const chatAreaRef = useRef<HTMLDivElement>(null)
@@ -116,6 +121,46 @@ function App() {
     return techTerms[lower] || capitalizeText(req)
   }, [capitalizeText])
 
+  // Helper function to normalize qualities to third person statements
+  const normalizeQuality = useCallback((quality: string) => {
+    // Remove any existing periods and trim
+    let normalized = quality.trim().replace(/\.$/, '')
+    
+    // Convert common first/second person patterns to third person
+    const patterns = [
+      { from: /^(I am|I'm)\s+/i, to: 'They are ' },
+      { from: /^You (are|should be|need to be)\s+/i, to: 'They are ' },
+      { from: /^(You|I)\s+(have|need|require|possess)\s+/i, to: 'They have ' },
+      { from: /^(You|I)\s+(can|should|must|will)\s+/i, to: 'They can ' },
+      { from: /^(You|I)\s+(work|collaborate|communicate)\s+/i, to: 'They work ' },
+      { from: /^(You|I)\s+/i, to: 'They ' },
+      { from: /^(Strong|Good|Excellent|Great)\s+/i, to: 'They have strong ' },
+      { from: /^(Ability to|Capable of)\s+/i, to: 'They are able to ' },
+      { from: /^(Experience with|Skilled in)\s+/i, to: 'They have experience with ' }
+    ]
+    
+    // Apply pattern matching
+    for (const pattern of patterns) {
+      if (pattern.from.test(normalized)) {
+        normalized = normalized.replace(pattern.from, pattern.to)
+        break
+      }
+    }
+    
+    // If no pattern matched and it doesn't start with "They", prefix it
+    if (!/^They\s+/i.test(normalized) && !/^(A|An|The)\s+/i.test(normalized)) {
+      normalized = 'They ' + normalized.toLowerCase()
+    }
+    
+    // Ensure first letter is capitalized and add period if missing
+    normalized = normalized.charAt(0).toUpperCase() + normalized.slice(1)
+    if (!normalized.endsWith('.')) {
+      normalized += '.'
+    }
+    
+    return normalized
+  }, [])
+
   const startChat = useCallback(async () => {
     if (!message.trim() || isLoading) return
 
@@ -147,63 +192,39 @@ function App() {
   }, [message, isLoading])
 
   const extractJobDescription = useCallback(async (conversation: Message[]) => {
-    if (!openai || conversation.length === 0) return
+    if (conversation.length === 0) return
 
     try {
       const conversationText = conversation
         .map(msg => `${msg.type === 'user' ? 'User' : 'AI'}: ${msg.content.replace(/<br\s*\/?>/gi, '\n')}`)
         .join('\n\n')
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert at extracting ONLY explicitly stated job information from hiring conversations. 
-
-            CRITICAL: You MUST only extract information that is directly stated in the conversation. Do NOT infer, assume, or generate any content that is not explicitly mentioned.
-
-            Extract ONLY if explicitly mentioned:
-            1. Role: Exact job title mentioned (e.g., "Software Engineer", "Product Manager")  
-            2. Location: Exact location mentioned (e.g., "San Francisco", "remote", "New York")
-            3. Requirements: Technical skills, tools, experience explicitly mentioned (short phrases)
-            4. Qualities: Soft skills, traits, behaviors explicitly discussed (complete sentences)
-
-            Return ONLY a JSON object:
-            {
-              "role": "exact title mentioned or null",
-              "location": "exact location mentioned or null",
-              "requirements": ["only explicitly mentioned skills/tools"],
-              "qualities": ["only explicitly mentioned traits as complete sentences"]
-            }
-
-            STRICT RULES:
-            - If a field is not explicitly mentioned in the conversation, return null (for role/location) or empty array (for requirements/qualities)
-            - Do NOT add common job requirements or qualities that weren't mentioned
-            - Do NOT make logical inferences about what might be needed
-            - Do NOT generate generic content
-            - Only extract what is actually written in the conversation text`
-          },
-          {
-            role: 'user',
-            content: conversationText
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.1
+      const response = await fetch('/api/extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationText
+        })
       })
 
-      const extractedText = response.choices[0]?.message?.content?.trim()
-      if (!extractedText) return
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
-      console.log('Raw extraction response:', extractedText)
+      const data = await response.json()
+      const extracted = data.extracted as JobDescription
 
-      try {
-        const extracted = JSON.parse(extractedText) as JobDescription
-        console.log('Parsed extraction:', extracted)
-        console.log('Conversation text that was analyzed:', conversationText)
-        
-        setJobDescription(prev => ({
+      console.log('=== EXTRACTION DEBUG ===')
+      console.log('Raw API response:', data)
+      console.log('Parsed extraction:', extracted)
+      console.log('Conversation text that was analyzed:', conversationText)
+      console.log('Current jobDescription state before update:', jobDescription)
+      console.log('=========================')
+      
+      setJobDescription(prev => {
+        const newState = {
           role: extracted.role ? capitalizeText(extracted.role) : prev.role,
           location: extracted.location ? capitalizeText(extracted.location) : prev.location,
           requirements: [...new Set([
@@ -212,18 +233,16 @@ function App() {
           ])],
           qualities: [...new Set([
             ...prev.qualities, 
-            ...extracted.qualities.map(quality => 
-              quality.charAt(0).toUpperCase() + quality.slice(1)
-            )
+            ...extracted.qualities.map(quality => normalizeQuality(quality))
           ])]
-        }))
-      } catch (parseError) {
-        console.error('Failed to parse job description extraction:', parseError)
-      }
+        }
+        console.log('New state being set:', newState)
+        return newState
+      })
     } catch (error) {
       console.error('Error extracting job description:', error)
     }
-  }, [capitalizeText, capitalizeRequirement])
+  }, [capitalizeText, capitalizeRequirement, normalizeQuality])
 
   const processMessage = useCallback(async (messageContent: string, currentMessages: Message[]) => {
     try {
