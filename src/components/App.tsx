@@ -118,7 +118,7 @@ function App() {
     }
     
     const lower = req.toLowerCase()
-    return techTerms[lower] || capitalizeText(req)
+    return techTerms[lower as keyof typeof techTerms] || capitalizeText(req)
   }, [capitalizeText])
 
   // Helper function to normalize qualities to third person statements
