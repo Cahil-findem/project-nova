@@ -9,6 +9,13 @@ interface Message {
   timestamp: number
 }
 
+interface JobDescription {
+  role?: string
+  location?: string
+  requirements: string[]
+  qualities: string[]
+}
+
 const openai = import.meta.env.VITE_OPENAI_API_KEY ? new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true
@@ -22,8 +29,75 @@ function App() {
   const [isResizing, setIsResizing] = useState(false)
   const [showStartScreen, setShowStartScreen] = useState(true)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [jobDescription, setJobDescription] = useState<JobDescription>({
+    requirements: [],
+    qualities: []
+  })
   const summaryRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Get user's location from IP address
+  const getUserLocation = useCallback(async () => {
+    try {
+      const response = await fetch('https://ipapi.co/json/')
+      const data = await response.json()
+      if (data.city && data.region) {
+        const location = `${data.city}, ${data.region}`
+        setJobDescription(prev => ({
+          ...prev,
+          location: location
+        }))
+      }
+    } catch (error) {
+      console.log('Could not get location from IP:', error)
+    }
+  }, [])
+
+  // Get location on component mount
+  React.useEffect(() => {
+    getUserLocation()
+  }, [getUserLocation])
+
+  // Helper function to properly capitalize text
+  const capitalizeText = useCallback((text: string) => {
+    return text
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }, [])
+
+  // Helper function to capitalize requirements (keep tech terms as-is)
+  const capitalizeRequirement = useCallback((req: string) => {
+    // Common tech terms that should maintain their casing
+    const techTerms = {
+      'javascript': 'JavaScript',
+      'typescript': 'TypeScript',
+      'react': 'React',
+      'nodejs': 'Node.js',
+      'node.js': 'Node.js',
+      'aws': 'AWS',
+      'css': 'CSS',
+      'html': 'HTML',
+      'sql': 'SQL',
+      'api': 'API',
+      'rest': 'REST',
+      'graphql': 'GraphQL',
+      'mongodb': 'MongoDB',
+      'postgresql': 'PostgreSQL',
+      'mysql': 'MySQL',
+      'docker': 'Docker',
+      'kubernetes': 'Kubernetes',
+      'git': 'Git',
+      'github': 'GitHub',
+      'gitlab': 'GitLab',
+      'saas': 'SaaS',
+      'ui/ux': 'UI/UX',
+      'json': 'JSON'
+    }
+    
+    const lower = req.toLowerCase()
+    return techTerms[lower] || capitalizeText(req)
+  }, [capitalizeText])
 
   const startChat = useCallback(async () => {
     if (!message.trim() || isLoading) return
@@ -54,6 +128,85 @@ function App() {
     // Continue with API call
     await processMessage(currentMessage, [userMessage])
   }, [message, isLoading])
+
+  const extractJobDescription = useCallback(async (conversation: Message[]) => {
+    if (!openai || conversation.length === 0) return
+
+    try {
+      const conversationText = conversation
+        .map(msg => `${msg.type === 'user' ? 'User' : 'AI'}: ${msg.content.replace(/<br\s*\/?>/gi, '\n')}`)
+        .join('\n\n')
+
+      const response = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert at extracting ONLY explicitly stated job information from hiring conversations. 
+
+            CRITICAL: You MUST only extract information that is directly stated in the conversation. Do NOT infer, assume, or generate any content that is not explicitly mentioned.
+
+            Extract ONLY if explicitly mentioned:
+            1. Role: Exact job title mentioned (e.g., "Software Engineer", "Product Manager")  
+            2. Location: Exact location mentioned (e.g., "San Francisco", "remote", "New York")
+            3. Requirements: Technical skills, tools, experience explicitly mentioned (short phrases)
+            4. Qualities: Soft skills, traits, behaviors explicitly discussed (complete sentences)
+
+            Return ONLY a JSON object:
+            {
+              "role": "exact title mentioned or null",
+              "location": "exact location mentioned or null",
+              "requirements": ["only explicitly mentioned skills/tools"],
+              "qualities": ["only explicitly mentioned traits as complete sentences"]
+            }
+
+            STRICT RULES:
+            - If a field is not explicitly mentioned in the conversation, return null (for role/location) or empty array (for requirements/qualities)
+            - Do NOT add common job requirements or qualities that weren't mentioned
+            - Do NOT make logical inferences about what might be needed
+            - Do NOT generate generic content
+            - Only extract what is actually written in the conversation text`
+          },
+          {
+            role: 'user',
+            content: conversationText
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.1
+      })
+
+      const extractedText = response.choices[0]?.message?.content?.trim()
+      if (!extractedText) return
+
+      console.log('Raw extraction response:', extractedText)
+
+      try {
+        const extracted = JSON.parse(extractedText) as JobDescription
+        console.log('Parsed extraction:', extracted)
+        console.log('Conversation text that was analyzed:', conversationText)
+        
+        setJobDescription(prev => ({
+          role: extracted.role ? capitalizeText(extracted.role) : prev.role,
+          location: extracted.location ? capitalizeText(extracted.location) : prev.location,
+          requirements: [...new Set([
+            ...prev.requirements, 
+            ...extracted.requirements.map(req => capitalizeRequirement(req))
+          ])],
+          qualities: [...new Set([
+            ...prev.qualities, 
+            ...extracted.qualities.map(quality => 
+              quality.charAt(0).toUpperCase() + quality.slice(1)
+            )
+          ])]
+        }))
+      } catch (parseError) {
+        console.error('Failed to parse job description extraction:', parseError)
+      }
+    } catch (error) {
+      console.error('Error extracting job description:', error)
+    }
+  }, [capitalizeText, capitalizeRequirement])
 
   const processMessage = useCallback(async (messageContent: string, currentMessages: Message[]) => {
     if (!openai) {
@@ -98,7 +251,11 @@ function App() {
         timestamp: Date.now()
       }
 
-      setMessages(prev => [...prev, aiMessage])
+      const updatedMessages = [...currentMessages, aiMessage]
+      setMessages(updatedMessages)
+      
+      // Extract job description after successful AI response
+      await extractJobDescription(updatedMessages)
     } catch (error) {
       console.error('Error calling OpenAI:', error)
       const errorMessage: Message = {
@@ -111,7 +268,7 @@ function App() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [extractJobDescription])
 
   const sendMessage = useCallback(async () => {
     if (!message.trim() || isLoading) return
@@ -123,13 +280,14 @@ function App() {
       timestamp: Date.now()
     }
 
-    setMessages(prev => [...prev, userMessage])
+    const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
     const currentMessage = message.trim()
     setMessage('')
     setIsLoading(true)
 
-    await processMessage(currentMessage, messages)
-  }, [message, messages, isLoading])
+    await processMessage(currentMessage, updatedMessages)
+  }, [message, messages, isLoading, processMessage])
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -290,7 +448,7 @@ function App() {
       <div className="main-content">
         {/* Header */}
         <div className="header">
-          <h1 className="header-title">Software Engineer</h1>
+          <h1 className="header-title">{jobDescription.role || 'New Role'}</h1>
           <div className="header-actions">
             <div data-count="false" data-icon="false" data-state="Active" className="action-tab active">
               <div className="action-tab-text">Define Role</div>
@@ -404,13 +562,21 @@ function App() {
             </div>
 
             <div className="figma-summary-content">
-              <div className="figma-role-info">
-                <div className="figma-role-title">Software Engineer</div>
-                <div className="figma-role-location">in San Francisco, CA, USA</div>
-              </div>
+              {(jobDescription.role || jobDescription.location) && (
+                <div className="figma-role-info">
+                  {jobDescription.role && (
+                    <div className="figma-role-title">{jobDescription.role}</div>
+                  )}
+                  {jobDescription.location && (
+                    <div className="figma-role-location">in {jobDescription.location}</div>
+                  )}
+                </div>
+              )}
 
               <div className="figma-sections-container">
-                <div className="figma-divider"></div>
+                {(jobDescription.role || jobDescription.location || jobDescription.requirements.length > 0 || jobDescription.qualities.length > 0) && (
+                  <div className="figma-divider"></div>
+                )}
                 
                 <div className="figma-overview-section">
                   <div className="figma-section-header">
@@ -440,58 +606,46 @@ function App() {
                   </div>
                 </div>
 
-                <div className="figma-divider"></div>
+                {jobDescription.requirements.length > 0 && (
+                  <>
+                    <div className="figma-divider"></div>
+                    <div className="figma-requirements-section">
+                      <div className="figma-section-header">
+                        <div className="figma-section-title">
+                          <div className="figma-section-text">Requirements</div>
+                        </div>
+                      </div>
+                      <div className="figma-requirements-tags">
+                        {jobDescription.requirements.map((requirement, index) => (
+                          <div key={index} className="figma-tag">
+                            <div className="figma-tag-text">{requirement}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
 
-                <div className="figma-requirements-section">
-                  <div className="figma-section-header">
-                    <div className="figma-section-title">
-                      <div className="figma-section-text">Requirements</div>
+                {jobDescription.qualities.length > 0 && (
+                  <>
+                    <div className="figma-divider"></div>
+                    <div className="figma-qualities-section">
+                      <div className="figma-section-header">
+                        <div className="figma-section-title">
+                          <div className="figma-section-text">Qualities</div>
+                        </div>
+                      </div>
+                      <div className="figma-qualities-list">
+                        {jobDescription.qualities.map((quality, index) => (
+                          <div key={index} className="figma-quality-item">
+                            <div className="figma-quality-icon">auto_awesome</div>
+                            <div className="figma-quality-text">{quality}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="figma-requirements-tags">
-                    <div className="figma-tag">
-                      <div className="figma-tag-text">Software Engineer</div>
-                    </div>
-                    <div className="figma-tag">
-                      <div className="figma-tag-text">Senior Software Engineer</div>
-                    </div>
-                    <div className="figma-tag">
-                      <div className="figma-tag-text">SaaS</div>
-                    </div>
-                    <div className="figma-tag">
-                      <div className="figma-tag-text">Startup</div>
-                    </div>
-                    <div className="figma-tag">
-                      <div className="figma-tag-text">AWS Cloud</div>
-                    </div>
-                    <div className="figma-tag">
-                      <div className="figma-tag-text">React.JS</div>
-                    </div>
-                    <div className="figma-tag">
-                      <div className="figma-tag-text">Cloud Applications</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="figma-divider"></div>
-
-                <div className="figma-qualities-section">
-                  <div className="figma-section-header">
-                    <div className="figma-section-title">
-                      <div className="figma-section-text">Qualities</div>
-                    </div>
-                  </div>
-                  <div className="figma-qualities-list">
-                    <div className="figma-quality-item">
-                      <div className="figma-quality-icon">auto_awesome</div>
-                      <div className="figma-quality-text">Experience creating and conceptualising robust systems for internal teams.</div>
-                    </div>
-                    <div className="figma-quality-item">
-                      <div className="figma-quality-icon">auto_awesome</div>
-                      <div className="figma-quality-text">Approaches their work with an AI first mentality.</div>
-                    </div>
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
