@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react'
 import OpenAI from 'openai'
+import { LocalOffer, AttachMoney, AutoAwesome } from '@mui/icons-material'
 import './App.css'
 
 interface Message {
@@ -619,7 +620,7 @@ function App() {
                   <div className="figma-overview-stats">
                     <div className="figma-stat-card">
                       <div className="figma-stat-icon">
-                        <div className="figma-icon-text">tag</div>
+                        <LocalOffer sx={{ fontSize: 24, color: '#6B7280' }} />
                       </div>
                       <div className="figma-stat-content">
                         <div className="figma-stat-number">125K</div>
@@ -628,7 +629,7 @@ function App() {
                     </div>
                     <div className="figma-stat-card">
                       <div className="figma-stat-icon">
-                        <div className="figma-icon-text">attach_money</div>
+                        <AttachMoney sx={{ fontSize: 24, color: '#6B7280' }} />
                       </div>
                       <div className="figma-stat-content">
                         <div className="figma-stat-number">250K</div>
@@ -670,7 +671,9 @@ function App() {
                       <div className="figma-qualities-list">
                         {jobDescription.qualities.map((quality, index) => (
                           <div key={index} className="figma-quality-item">
-                            <div className="figma-quality-icon">auto_awesome</div>
+                            <div className="figma-quality-icon">
+                              <AutoAwesome sx={{ fontSize: 16, color: '#6B7280' }} />
+                            </div>
                             <div className="figma-quality-text">{quality}</div>
                           </div>
                         ))}
